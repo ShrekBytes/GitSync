@@ -8,24 +8,18 @@ import 'package:flutter/foundation.dart';
 
 class PremiumManager {
   final ValueNotifier<bool?> hasPremiumNotifier = ValueNotifier(null);
-
+  
   Future<void> init() async {
-    await updateGitHubSponsorPremium();
-
-    final isPremium = await _readPremiumStatus();
-    hasPremiumNotifier.value = isPremium;
+  hasPremiumNotifier.value = true;
   }
-
+  
   Future<bool> _readPremiumStatus() async {
-    return
-    // kDebugMode ||
-    await repoManager.getBool(StorageKey.repoman_hasGHSponsorPremium);
+  return true;
   }
-
+  
   Future<void> updateGitHubSponsorPremium() async {
-    if (!await hasNetworkConnection()) {
-      return;
-    }
+  return;
+  }
 
     final userToken = await repoManager.getStringNullable(StorageKey.repoman_ghSponsorToken);
     if (userToken == null) {
