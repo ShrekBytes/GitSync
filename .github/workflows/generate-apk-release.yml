@@ -1,9 +1,9 @@
-name: Release OSS (APK)
+name: Release Internal (APK)
 
 on:
   push:
     tags:
-      - v*
+      - internal-v*
 
   workflow_dispatch:
 
@@ -80,8 +80,6 @@ jobs:
         run: |
           export CARGO_ENCODED_RUSTFLAGS=$(printf '%s\x1f%s\x1f%s' "--remap-path-prefix=$HOME/.cargo/registry/src=/cargo/registry/src" "--remap-path-prefix=$GITHUB_WORKSPACE=." "-Ccodegen-units=1")
           export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
-          # Build each ABI in its own gradle invocation so the gradle task graph
-          # matches F-Droid (which builds one ABI per metadata entry job).
           flutter build apk --release --split-per-abi --target-platform="android-arm"
           flutter build apk --release --split-per-abi --target-platform="android-arm64"
           flutter build apk --release --split-per-abi --target-platform="android-x64"
@@ -91,10 +89,10 @@ jobs:
         uses: ilharp/sign-android-release@v2
         with:
           releaseDir: build/app/outputs/flutter-apk/
-          signingKey: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          keyAlias: ${{ secrets.RELEASE_SIGNING_ALIAS }}
-          keyStorePassword: ${{ secrets.RELEASE_SIGNING_PASSWORD }}
-          keyPassword: ${{ secrets.RELEASE_SIGNING_PASSWORD }}
+          signingKey: ${{ secrets.INTERNAL_RELEASE_KEYSTORE_BASE64 }}
+          keyAlias: ${{ secrets.INTERNAL_RELEASE_SIGNING_ALIAS }}
+          keyStorePassword: ${{ secrets.INTERNAL_RELEASE_SIGNING_PASSWORD }}
+          keyPassword: ${{ secrets.INTERNAL_RELEASE_SIGNING_PASSWORD }}
           buildToolsVersion: 34.0.0
 
       - name: Format App List
@@ -109,64 +107,7 @@ jobs:
       - name: Upload Release Build to Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: release-artifacts
+          name: internal-release-artifacts
           path: |
             ${{ steps.signed_file_artifacts.outputs.signedFiles }}
             !*-release.apk
-
-      - uses: jungwinter/split@v2
-        id: signed_files
-        with:
-          msg: ${{ steps.sign_app.outputs.signedFiles }}
-          separator: ":"
-
-      - name: Build Changelog
-        id: changelog
-        uses: ardalanamini/auto-changelog@v4
-        with:
-          mention-authors: false
-          mention-new-contributors: false
-          include-compare: false
-          semver: false
-
-      - name: Find and Replace
-        uses: mad9000/actions-find-and-replace-string@5
-        id: signed_file_path_0
-        with:
-          source: ${{ steps.signed_files.outputs._0 }}
-          find: "/github/workspace/"
-          replace: ""
-
-      - name: Find and Replace
-        uses: mad9000/actions-find-and-replace-string@5
-        id: signed_file_path_1
-        with:
-          source: ${{ steps.signed_files.outputs._1 }}
-          find: "/github/workspace/"
-          replace: ""
-
-      - name: Find and Replace
-        uses: mad9000/actions-find-and-replace-string@5
-        id: signed_file_path_2
-        with:
-          source: ${{ steps.signed_files.outputs._2 }}
-          find: "/github/workspace/"
-          replace: ""
-
-      - name: Get Previous Tag
-        id: previous_tag
-        run: |
-          PREVIOUS_TAG=$(git tag --list 'v*.*.*' --sort=-version:refname | sed -n '2p')
-          echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Create Release
-        id: create_release
-        uses: ncipollo/release-action@v1.21.0
-        with:
-          artifacts: "${{ steps.signed_file_path_0.outputs.value }},${{ steps.signed_file_path_1.outputs.value }},${{ steps.signed_file_path_2.outputs.value }}"
-          body: ${{ steps.changelog.outputs.changelog }}
-          draft: true
-          generateReleaseNotes: true
-          generateReleaseNotesPreviousTag: ${{ steps.previous_tag.outputs.previous_tag }}
-          name: Release ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
